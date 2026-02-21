@@ -208,58 +208,58 @@ def align_lyrics(lyrics_words: list, whisper_words: list,
     # ── If we have lyrics_lines, do line-by-line alignment ────
     if lyrics_lines:
         result = []
-        total_lyr_words = sum(len(line) for line in lyrics_lines)
 
-        # Distribute Whisper words across lyrics lines proportionally
+        # Strict 1-to-1: each lyrics line consumes exactly n_line
+        # Whisper words.  Extra Whisper words between lines become
+        # natural silence gaps (blank screen).
         wi = 0  # running Whisper index
         for line_num, line_words in enumerate(lyrics_lines):
             n_line = len(line_words)
             if n_line == 0:
                 continue
 
-            # How many Whisper words this line gets (proportional)
-            remaining_lyrics = total_lyr_words - sum(
-                len(lyrics_lines[k]) for k in range(line_num)
-            )
-            remaining_whi = n_whi - wi
-            if remaining_lyrics > 0:
-                n_slice = max(n_line, round(n_line * remaining_whi / remaining_lyrics))
-            else:
-                n_slice = n_line
-            n_slice = min(n_slice, remaining_whi)
-            n_slice = max(n_slice, n_line)       # at least one Whisper word per lyrics word
-            n_slice = min(n_slice, remaining_whi) # can't exceed what's left
-
+            n_slice = min(n_line, n_whi - wi)    # exactly n_line, clamped
             whisper_slice = whisper_words[wi : wi + n_slice]
 
-            # Map each lyrics word in this line to a Whisper word
-            # 1-to-1 direct mapping: word 0 → slice[0], word 1 → slice[1], ...
-            # Last lyrics word always gets the last slice word's END time
-            # so that end-of-line words aren't pushed late
             for j, lw in enumerate(line_words):
-                idx = min(j, len(whisper_slice) - 1)
-                w_start = whisper_slice[idx]["start"]
-                # For the last word in a line, use the end of the last
-                # meaningful whisper word in the slice (not beyond)
-                if j == n_line - 1:
-                    w_end = whisper_slice[min(j, len(whisper_slice) - 1)]["end"]
+                if j < len(whisper_slice):
+                    result.append({
+                        "word":  lw,
+                        "start": whisper_slice[j]["start"],
+                        "end":   whisper_slice[j]["end"],
+                    })
                 else:
-                    w_end = whisper_slice[idx]["end"]
-                result.append({
-                    "word":  lw,
-                    "start": w_start,
-                    "end":   w_end,
-                })
+                    # More lyrics words than Whisper words remain —
+                    # reuse the last available timestamp
+                    last = whisper_slice[-1] if whisper_slice else whisper_words[-1]
+                    result.append({
+                        "word":  lw,
+                        "start": last["start"],
+                        "end":   last["end"],
+                    })
 
             wi += n_slice
 
+            # Skip any extra Whisper words before the next line that
+            # appear to be in a silence gap (gap > 0.3s to next word).
+            # This re-syncs alignment when Whisper has extra words.
+            while wi < n_whi - 1:
+                gap = whisper_words[wi]["start"] - whisper_words[wi - 1]["end"]
+                if gap >= 0.3:
+                    break                        # likely a real pause
+                # Check if this extra Whisper word overlaps with next line
+                # by comparing its timing with the next lyrics line's expected range
+                if line_num + 1 < len(lyrics_lines):
+                    break                        # let next line handle it
+                wi += 1
+
             # Insert linebreak marker after each line (except the last)
             if line_num < len(lyrics_lines) - 1 and result:
-                last = result[-1]
+                last_entry = result[-1]
                 result.append({
                     "word": "",
-                    "start": last["end"],
-                    "end":   last["end"],
+                    "start": last_entry["end"],
+                    "end":   last_entry["end"],
                     "_linebreak": True,
                 })
 

@@ -1,0 +1,25 @@
+# Media files (too large for git)
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.webm
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.m4a
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+
+# Whisper model cache
+*.pt
+
+# OS
+.DS_Store
+Thumbs.db

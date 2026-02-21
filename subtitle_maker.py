@@ -34,7 +34,7 @@ from datetime import timedelta
 WORDS_PER_CHUNK = 3
 WHISPER_MODEL = "base"
 SILENCE_GAP_THRESHOLD = 0.4      # seconds — gap between words that triggers a chunk break
-PRE_DISPLAY_OFFSET = 0.05        # seconds — how early subtitle appears before the word is sung
+PRE_DISPLAY_OFFSET = 0.1         # seconds — how early subtitle appears before the word is sung
 
 # ASS subtitle styling (Instagram look)
 FONT_NAME = "Impact"
@@ -232,13 +232,23 @@ def align_lyrics(lyrics_words: list, whisper_words: list,
 
             whisper_slice = whisper_words[wi : wi + n_slice]
 
-            # Map each lyrics word in this line to a Whisper word in the slice
+            # Map each lyrics word in this line to a Whisper word
+            # 1-to-1 direct mapping: word 0 → slice[0], word 1 → slice[1], ...
+            # Last lyrics word always gets the last slice word's END time
+            # so that end-of-line words aren't pushed late
             for j, lw in enumerate(line_words):
-                idx = min(int(j * len(whisper_slice) / n_line), len(whisper_slice) - 1)
+                idx = min(j, len(whisper_slice) - 1)
+                w_start = whisper_slice[idx]["start"]
+                # For the last word in a line, use the end of the last
+                # meaningful whisper word in the slice (not beyond)
+                if j == n_line - 1:
+                    w_end = whisper_slice[min(j, len(whisper_slice) - 1)]["end"]
+                else:
+                    w_end = whisper_slice[idx]["end"]
                 result.append({
                     "word":  lw,
-                    "start": whisper_slice[idx]["start"],
-                    "end":   whisper_slice[idx]["end"],
+                    "start": w_start,
+                    "end":   w_end,
                 })
 
             wi += n_slice
@@ -309,7 +319,14 @@ def chunk_words(words: list[dict], size: int = 3,
             j += 1
 
         text  = " ".join(w["word"] for w in group)
-        start = max(0, group[0]["start"] - pre_display)
+        raw_start = group[0]["start"]
+        # Apply pre-display offset, but don't go earlier than 0
+        # and don't apply it if the word already starts very early
+        # (avoids subtitle appearing before any speech at video start)
+        if raw_start < 0.3:
+            start = raw_start               # trust Whisper for very early words
+        else:
+            start = max(0, raw_start - pre_display)
         end   = group[-1]["end"]
 
         # enforce a minimum display time

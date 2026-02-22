@@ -1,0 +1,118 @@
+[Script Info]
+Title: Instagram Style Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Impact,105,&H00FFFFFF,&H000000FF,&H40000000,&HA0000000,-1,0,0,0,100,100,2,0,1,4,3,2,10,10,345,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:02.63,Default,,0,0,0,,DREAMS OF WHEN
+Dialogue: 0,0:00:02.63,0:00:04.18,Default,,0,0,0,,HUMANITY WILL TAKE
+Dialogue: 0,0:00:04.67,0:00:07.51,Default,,0,0,0,,THAT FIRST STARSHIP
+Dialogue: 0,0:00:07.51,0:00:09.00,Default,,0,0,0,,TO MARS.
+Dialogue: 0,0:00:10.19,0:00:12.09,Default,,0,0,0,,THROUGH THE DARK
+Dialogue: 0,0:00:12.09,0:00:13.42,Default,,0,0,0,,AND ENDLESS NIGHT
+Dialogue: 0,0:00:13.42,0:00:15.51,Default,,0,0,0,,WE'RE CHASING DREAMS,
+Dialogue: 0,0:00:15.51,0:00:17.16,Default,,0,0,0,,WE'RE TAKING FLIGHT
+Dialogue: 0,0:00:17.79,0:00:18.61,Default,,0,0,0,,PAST THE MOON,
+Dialogue: 0,0:00:18.61,0:00:20.38,Default,,0,0,0,,BEYOND THE SKY
+Dialogue: 0,0:00:20.81,0:00:21.79,Default,,0,0,0,,A WORLD UNKNOWN
+Dialogue: 0,0:00:21.79,0:00:22.59,Default,,0,0,0,,WHERE HOPES
+Dialogue: 0,0:00:22.59,0:00:23.78,Default,,0,0,0,,WILL THRIVE
+Dialogue: 0,0:00:23.78,0:00:24.94,Default,,0,0,0,,THE ENGINES HUM,
+Dialogue: 0,0:00:25.59,0:00:26.84,Default,,0,0,0,,THE STARS ALIGN
+Dialogue: 0,0:00:27.37,0:00:28.55,Default,,0,0,0,,A MILLION MILES
+Dialogue: 0,0:00:28.55,0:00:29.21,Default,,0,0,0,,OF SPACE
+Dialogue: 0,0:00:29.21,0:00:30.24,Default,,0,0,0,,AND TIME
+Dialogue: 0,0:00:30.75,0:00:32.23,Default,,0,0,0,,LEAVE BEHIND THE
+Dialogue: 0,0:00:32.23,0:00:33.84,Default,,0,0,0,,EARTHBOUND SCARS
+Dialogue: 0,0:00:34.31,0:00:34.69,Default,,0,0,0,,WE'RE ON A
+Dialogue: 0,0:00:34.69,0:00:36.86,Default,,0,0,0,,STARSHIP TO MARS
+Dialogue: 0,0:00:37.41,0:00:40.71,Default,,0,0,0,,ON A STARSHIP
+Dialogue: 0,0:00:40.71,0:00:42.10,Default,,0,0,0,,TO MARS
+Dialogue: 0,0:00:42.65,0:00:43.75,Default,,0,0,0,,WE'RE BREAKING
+Dialogue: 0,0:00:43.75,0:00:45.00,Default,,0,0,0,,THE CHAINS
+Dialogue: 0,0:00:46.03,0:00:47.43,Default,,0,0,0,,THROUGH COSMIC WINDS
+Dialogue: 0,0:00:47.43,0:00:48.79,Default,,0,0,0,,WE RIDE
+Dialogue: 0,0:00:48.79,0:00:50.18,Default,,0,0,0,,THE FLAMES
+Dialogue: 0,0:00:50.18,0:00:53.52,Default,,0,0,0,,A CRIMSON HORIZON,
+Dialogue: 0,0:00:53.69,0:00:54.98,Default,,0,0,0,,A BRAVE
+Dialogue: 0,0:00:54.98,0:00:56.34,Default,,0,0,0,,NEW START
+Dialogue: 0,0:00:56.97,0:00:59.13,Default,,0,0,0,,ON A STARSHIP
+Dialogue: 0,0:00:59.13,0:01:00.12,Default,,0,0,0,,TO MARS,
+Dialogue: 0,0:01:00.49,0:01:01.55,Default,,0,0,0,,WE FOLLOW
+Dialogue: 0,0:01:01.55,0:01:04.06,Default,,0,0,0,,OUR HEARTS
+Dialogue: 0,0:01:06.69,0:01:08.49,Default,,0,0,0,,DUSTY PLAINS AND
+Dialogue: 0,0:01:08.49,0:01:10.02,Default,,0,0,0,,SKIES OF RED
+Dialogue: 0,0:01:10.67,0:01:11.29,Default,,0,0,0,,A PLANET
+Dialogue: 0,0:01:11.29,0:01:13.28,Default,,0,0,0,,UNTOUCHED, UNSAID
+Dialogue: 0,0:01:14.07,0:01:14.64,Default,,0,0,0,,IN THE
+Dialogue: 0,0:01:14.97,0:01:16.58,Default,,0,0,0,,SILENCE, DREAMS IGNITE
+Dialogue: 0,0:01:17.11,0:01:18.03,Default,,0,0,0,,A FRONTIER BORN
+Dialogue: 0,0:01:18.03,0:01:18.51,Default,,0,0,0,,IN THE
+Dialogue: 0,0:01:18.51,0:01:19.72,Default,,0,0,0,,MARTIAN LIGHT
+Dialogue: 0,0:01:19.72,0:01:21.43,Default,,0,0,0,,THROUGH THE VOID
+Dialogue: 0,0:01:21.43,0:01:22.07,Default,,0,0,0,,WE MAKE
+Dialogue: 0,0:01:22.07,0:01:22.96,Default,,0,0,0,,OUR WAY
+Dialogue: 0,0:01:23.63,0:01:24.28,Default,,0,0,0,,CARVING PATHS
+Dialogue: 0,0:01:24.65,0:01:25.55,Default,,0,0,0,,WHERE STARS
+Dialogue: 0,0:01:25.55,0:01:26.66,Default,,0,0,0,,DON'T STRAY
+Dialogue: 0,0:01:27.45,0:01:28.51,Default,,0,0,0,,A COLONY OF
+Dialogue: 0,0:01:28.51,0:01:29.74,Default,,0,0,0,,SHINING STARS
+Dialogue: 0,0:01:29.74,0:01:31.75,Default,,0,0,0,,BEGINS ON THE
+Dialogue: 0,0:01:31.75,0:01:33.74,Default,,0,0,0,,SANDS OF MARS
+Dialogue: 0,0:01:33.99,0:01:36.97,Default,,0,0,0,,ON A STARSHIP
+Dialogue: 0,0:01:36.97,0:01:38.72,Default,,0,0,0,,TO MARS
+Dialogue: 0,0:01:38.83,0:01:40.09,Default,,0,0,0,,WE'RE BREAKING
+Dialogue: 0,0:01:40.09,0:01:41.90,Default,,0,0,0,,THE CHAINS
+Dialogue: 0,0:01:42.33,0:01:43.81,Default,,0,0,0,,THROUGH COSMIC WINDS
+Dialogue: 0,0:01:43.81,0:01:44.85,Default,,0,0,0,,WE RIDE
+Dialogue: 0,0:01:44.85,0:01:46.50,Default,,0,0,0,,THE FLAMES
+Dialogue: 0,0:01:46.50,0:01:49.79,Default,,0,0,0,,A CRIMSON HORIZON,
+Dialogue: 0,0:01:49.79,0:01:51.30,Default,,0,0,0,,A BRAVE
+Dialogue: 0,0:01:51.30,0:01:52.84,Default,,0,0,0,,NEW START
+Dialogue: 0,0:01:53.21,0:01:55.19,Default,,0,0,0,,ON A STARSHIP
+Dialogue: 0,0:01:55.19,0:01:56.85,Default,,0,0,0,,TO MARS, WE
+Dialogue: 0,0:01:56.85,0:02:00.74,Default,,0,0,0,,FOLLOW OUR HEARTS
+Dialogue: 0,0:02:02.33,0:02:03.85,Default,,0,0,0,,SO HERE WE
+Dialogue: 0,0:02:03.85,0:02:04.79,Default,,0,0,0,,STAND, WHERE
+Dialogue: 0,0:02:04.79,0:02:06.10,Default,,0,0,0,,DREAMS COLLIDE
+Dialogue: 0,0:02:06.55,0:02:07.96,Default,,0,0,0,,ON MARTIAN SOIL,
+Dialogue: 0,0:02:08.11,0:02:08.63,Default,,0,0,0,,OUR HOPE,
+Dialogue: 0,0:02:08.63,0:02:09.22,Default,,0,0,0,,OUR GUIDE
+Dialogue: 0,0:02:09.22,0:02:11.56,Default,,0,0,0,,EARTH'S ECHOES ARE
+Dialogue: 0,0:02:11.56,0:02:12.22,Default,,0,0,0,,FAINT AND FAR
+Dialogue: 0,0:02:13.03,0:02:14.23,Default,,0,0,0,,BUT WE SHINE
+Dialogue: 0,0:02:14.23,0:02:14.83,Default,,0,0,0,,LIKE A
+Dialogue: 0,0:02:14.83,0:02:16.10,Default,,0,0,0,,MORNING STAR
+Dialogue: 0,0:02:16.69,0:02:18.59,Default,,0,0,0,,THROUGH THIS STARSHIP
+Dialogue: 0,0:02:18.59,0:02:19.52,Default,,0,0,0,,TO MARS
+Dialogue: 0,0:02:19.87,0:02:20.83,Default,,0,0,0,,BUILD A FUTURE
+Dialogue: 0,0:02:20.83,0:02:21.53,Default,,0,0,0,,FOR YOU
+Dialogue: 0,0:02:21.53,0:02:22.62,Default,,0,0,0,,AND ME
+Dialogue: 0,0:02:23.39,0:02:24.33,Default,,0,0,0,,THROUGH THE COSMOS
+Dialogue: 0,0:02:24.33,0:02:26.30,Default,,0,0,0,,ACROSS THE STARS
+Dialogue: 0,0:02:26.73,0:02:28.03,Default,,0,0,0,,WE'VE FOUND OUR
+Dialogue: 0,0:02:28.03,0:02:29.84,Default,,0,0,0,,HOME ON MARS
+Dialogue: 0,0:02:30.19,0:02:33.39,Default,,0,0,0,,ON A STARSHIP
+Dialogue: 0,0:02:33.39,0:02:34.66,Default,,0,0,0,,TO MARS
+Dialogue: 0,0:02:35.27,0:02:36.33,Default,,0,0,0,,WE'RE BREAKING
+Dialogue: 0,0:02:36.33,0:02:37.48,Default,,0,0,0,,THE CHAINS
+Dialogue: 0,0:02:37.48,0:02:40.03,Default,,0,0,0,,THROUGH COSMIC WINDS
+Dialogue: 0,0:02:40.03,0:02:41.05,Default,,0,0,0,,WE RIDE
+Dialogue: 0,0:02:41.05,0:02:43.26,Default,,0,0,0,,THE FLAMES
+Dialogue: 0,0:02:43.79,0:02:45.94,Default,,0,0,0,,A CRIMSON HORIZON,
+Dialogue: 0,0:02:46.09,0:02:47.56,Default,,0,0,0,,A BRAVE
+Dialogue: 0,0:02:47.56,0:02:48.86,Default,,0,0,0,,NEW START
+Dialogue: 0,0:02:49.69,0:02:51.71,Default,,0,0,0,,ON A STARSHIP
+Dialogue: 0,0:02:51.71,0:02:52.60,Default,,0,0,0,,TO MARS
+Dialogue: 0,0:02:52.95,0:02:56.67,Default,,0,0,0,,A STARSHIP
+Dialogue: 0,0:02:56.67,0:02:58.10,Default,,0,0,0,,TO MARS
+Dialogue: 0,0:02:58.10,0:03:01.51,Default,,0,0,0,,WE FOLLOW
+Dialogue: 0,0:03:01.51,0:03:05.20,Default,,0,0,0,,OUR HEARTS

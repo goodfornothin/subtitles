@@ -25,6 +25,7 @@ import re
 import math
 import shutil
 import tempfile
+from difflib import SequenceMatcher
 from pathlib import Path
 from datetime import timedelta
 
@@ -34,7 +35,7 @@ from datetime import timedelta
 WORDS_PER_CHUNK = 3
 WHISPER_MODEL = "base"
 SILENCE_GAP_THRESHOLD = 0.4      # seconds — gap between words that triggers a chunk break
-PRE_DISPLAY_OFFSET = 0.1         # seconds — how early subtitle appears before the word is sung
+PRE_DISPLAY_OFFSET = 0.15        # seconds — how early subtitle appears before the word is sung
 
 # ASS subtitle styling (Instagram look)
 FONT_NAME = "Impact"
@@ -152,22 +153,20 @@ def transcribe(media_path: Path, model_size: str = "base"):
 
 
 # ──────────────────────────────────────────────────────────────
-# Lyrics alignment
+# Lyrics alignment  (DTW with fuzzy matching)
 # ──────────────────────────────────────────────────────────────
 
-def clean_lyrics(text: str) -> list[str]:
+def clean_lyrics(text: str) -> list:
     """Split lyrics text into a flat list of words, stripping blanks."""
-    # Remove common section markers like [Verse 1], [Chorus], etc.
     text = re.sub(r"\[.*?\]", "", text)
     words = text.split()
     return [w for w in words if w.strip()]
 
 
-def parse_lyrics_lines(text: str) -> list[list[str]]:
+def parse_lyrics_lines(text: str) -> list:
     """
     Parse lyrics into a list of lines, each line being a list of words.
-    Blank lines and section markers are removed.  Preserves line structure
-    so we can insert silence breaks between lines.
+    Blank lines and section markers are removed.
     """
     text = re.sub(r"\[.*?\]", "", text)
     lines = []
@@ -179,164 +178,340 @@ def parse_lyrics_lines(text: str) -> list[list[str]]:
     return lines
 
 
-def align_lyrics(lyrics_words: list, whisper_words: list,
-                 lyrics_lines=None) -> list:
-    """
-    Map provided lyrics onto the timeline produced by Whisper.
+def _flat_lyrics(lines):
+    """Flatten lyrics lines into a single word list with line indices."""
+    result = []
+    for line_idx, line in enumerate(lines):
+        for word_idx, word in enumerate(line):
+            result.append({
+                "word": word,
+                "line_idx": line_idx,
+                "word_idx": word_idx,
+                "is_line_end": word_idx == len(line) - 1,
+            })
+    return result
 
-    Strategy: align LINE-by-LINE.  Each lyrics line is mapped to a
-    proportional slice of Whisper words.  Within that slice, each
-    lyrics word gets exactly one Whisper word's start/end timestamp.
-    This preserves natural silences between lines because the gaps
-    live between slices.
 
-    If *lyrics_lines* is provided, a linebreak marker is injected
-    after each line so that `chunk_words` never merges words across
-    lines.
+def _word_similarity(a, b):
+    """Compute similarity between two words (0.0 to 1.0)."""
+    a_clean = re.sub(r"[^a-z]", "", a.lower())
+    b_clean = re.sub(r"[^a-z]", "", b.lower())
+    if not a_clean or not b_clean:
+        return 0.0
+    if a_clean == b_clean:
+        return 1.0
+    ratio = SequenceMatcher(None, a_clean, b_clean).ratio()
+    if a_clean.startswith(b_clean) or b_clean.startswith(a_clean):
+        ratio = max(ratio, 0.7)
+    return ratio
+
+
+def _merged_word_similarity(lyrics_words, whisper_word):
+    """Check if a Whisper word is a merge of multiple lyrics words."""
+    concat = "".join(re.sub(r"[^a-z]", "", w.lower()) for w in lyrics_words)
+    w_clean = re.sub(r"[^a-z]", "", whisper_word.lower())
+    if not concat or not w_clean:
+        return 0.0
+    return SequenceMatcher(None, concat, w_clean).ratio()
+
+
+def _split_word_similarity(lyrics_word, whisper_words):
+    """Check if multiple Whisper words correspond to a single lyrics word."""
+    concat = "".join(re.sub(r"[^a-z]", "", w.lower()) for w in whisper_words)
+    l_clean = re.sub(r"[^a-z]", "", lyrics_word.lower())
+    if not concat or not l_clean:
+        return 0.0
+    return SequenceMatcher(None, l_clean, concat).ratio()
+
+
+def _preprocess_whisper(whisper_words):
+    """Merge hyphenated splits (e.g. 'star' + '-shaped' → 'star-shaped')."""
+    merged = []
+    for w in whisper_words:
+        if w["word"].startswith("-") and merged:
+            prev = merged[-1]
+            prev["word"] = prev["word"] + w["word"]
+            prev["end"] = w["end"]
+        else:
+            merged.append(dict(w))
+    return merged
+
+
+def align_lyrics(lyrics_words, whisper_words, lyrics_lines=None):
     """
+    Map provided lyrics onto the timeline produced by Whisper using
+    Dynamic Time Warping with fuzzy text matching.
+
+    Handles word splits, merges, and mishearings automatically.
+    """
+    # Pre-process: merge hyphenated Whisper splits
+    whisper_words = _preprocess_whisper(whisper_words)
+
     if not whisper_words:
         dur = 60.0
         step = dur / max(len(lyrics_words), 1)
         return [
-            {"word": w, "start": i * step, "end": (i + 1) * step}
+            {"word": w, "start": i * step, "end": (i + 1) * step,
+             "line_idx": 0, "is_line_end": i == len(lyrics_words) - 1}
             for i, w in enumerate(lyrics_words)
         ]
 
-    n_lyr = len(lyrics_words)
-    n_whi = len(whisper_words)
-
-    # ── If we have lyrics_lines, do line-by-line alignment ────
+    # Build flat lyrics with line info
     if lyrics_lines:
-        result = []
+        flat = _flat_lyrics(lyrics_lines)
+    else:
+        flat = [{"word": w, "line_idx": 0, "word_idx": i,
+                 "is_line_end": i == len(lyrics_words) - 1}
+                for i, w in enumerate(lyrics_words)]
 
-        # Strict 1-to-1: each lyrics line consumes exactly n_line
-        # Whisper words.  Extra Whisper words between lines become
-        # natural silence gaps (blank screen).
-        wi = 0  # running Whisper index
-        for line_num, line_words in enumerate(lyrics_lines):
-            n_line = len(line_words)
-            if n_line == 0:
-                continue
+    n = len(flat)
+    m = len(whisper_words)
 
-            n_slice = min(n_line, n_whi - wi)    # exactly n_line, clamped
-            whisper_slice = whisper_words[wi : wi + n_slice]
+    # DP table: dp[i][j] = (cost, backpointer)
+    INF = float("inf")
+    dp = [[None] * (m + 1) for _ in range(n + 1)]
+    dp[0][0] = (0.0, None)
+    for j in range(1, m + 1):
+        dp[0][j] = (j * 0.1, (0, 1))
+    for i in range(1, n + 1):
+        dp[i][0] = (i * 2.0, (1, 0))
 
-            for j, lw in enumerate(line_words):
-                if j < len(whisper_slice):
-                    result.append({
-                        "word":  lw,
-                        "start": whisper_slice[j]["start"],
-                        "end":   whisper_slice[j]["end"],
-                    })
-                else:
-                    # More lyrics words than Whisper words remain —
-                    # reuse the last available timestamp
-                    last = whisper_slice[-1] if whisper_slice else whisper_words[-1]
-                    result.append({
-                        "word":  lw,
-                        "start": last["start"],
-                        "end":   last["end"],
-                    })
+    for i in range(1, n + 1):
+        lw = flat[i - 1]["word"]
+        for j in range(1, m + 1):
+            ww = whisper_words[j - 1]["word"]
+            candidates = []
 
-            wi += n_slice
+            # Match
+            sim = _word_similarity(lw, ww)
+            match_cost = (1.0 - sim) * 2.0
+            if dp[i - 1][j - 1] is not None:
+                candidates.append((dp[i - 1][j - 1][0] + match_cost, (1, 1)))
+            # Skip lyrics word
+            if dp[i - 1][j] is not None:
+                candidates.append((dp[i - 1][j][0] + 1.5, (1, 0)))
+            # Skip Whisper word
+            if dp[i][j - 1] is not None:
+                candidates.append((dp[i][j - 1][0] + 0.3, (0, 1)))
+            # Merge: 2 lyrics words → 1 Whisper word
+            if i >= 2 and dp[i - 2][j - 1] is not None:
+                merge_sim = _merged_word_similarity(
+                    [flat[i - 2]["word"], lw], ww)
+                if merge_sim > 0.4:
+                    candidates.append(
+                        (dp[i - 2][j - 1][0] + (1.0 - merge_sim) * 1.5, (2, 1)))
+            # Split: 1 lyrics word → 2 Whisper words
+            if j >= 2 and dp[i - 1][j - 2] is not None:
+                split_sim = _split_word_similarity(
+                    lw, [whisper_words[j - 2]["word"], ww])
+                if split_sim > 0.4:
+                    candidates.append(
+                        (dp[i - 1][j - 2][0] + (1.0 - split_sim) * 1.5, (1, 2)))
 
-            # Skip any extra Whisper words before the next line that
-            # appear to be in a silence gap (gap > 0.3s to next word).
-            # This re-syncs alignment when Whisper has extra words.
-            while wi < n_whi - 1:
-                gap = whisper_words[wi]["start"] - whisper_words[wi - 1]["end"]
-                if gap >= 0.3:
-                    break                        # likely a real pause
-                # Check if this extra Whisper word overlaps with next line
-                # by comparing its timing with the next lyrics line's expected range
-                if line_num + 1 < len(lyrics_lines):
-                    break                        # let next line handle it
-                wi += 1
+            if candidates:
+                dp[i][j] = min(candidates, key=lambda x: x[0])
 
-            # Insert linebreak marker after each line (except the last)
-            if line_num < len(lyrics_lines) - 1 and result:
-                last_entry = result[-1]
-                result.append({
-                    "word": "",
-                    "start": last_entry["end"],
-                    "end":   last_entry["end"],
-                    "_linebreak": True,
-                })
-
-        return result
-
-    # ── Fallback: flat proportional mapping (no lyrics_lines) ─
-    aligned = []
-    for i, lw in enumerate(lyrics_words):
-        idx = min(int(i * n_whi / n_lyr), n_whi - 1)
-        aligned.append({
-            "word":  lw,
-            "start": whisper_words[idx]["start"],
-            "end":   whisper_words[idx]["end"],
-        })
-    return aligned
-
-
-# ──────────────────────────────────────────────────────────────
-# Chunking (2-3 words per subtitle)
-# ──────────────────────────────────────────────────────────────
-
-def chunk_words(words: list[dict], size: int = 3,
-                gap_threshold: float = SILENCE_GAP_THRESHOLD,
-                pre_display: float = PRE_DISPLAY_OFFSET) -> list[dict]:
-    """
-    Group timestamped words into chunks of up to *size* words.
-
-    Silence-aware: if there is a gap >= *gap_threshold* seconds between
-    two consecutive words, the current chunk is closed even if it has
-    fewer than *size* words.  This keeps the screen blank during silence.
-
-    *pre_display* controls how many seconds before the first word the
-    subtitle appears (set to 0 for exact sync).
-    """
-    chunks = []
-    i = 0
-    n = len(words)
-
-    while i < n:
-        # Skip linebreak markers
-        if words[i].get("_linebreak"):
-            i += 1
+    # Traceback
+    alignment = []
+    i, j = n, m
+    while i > 0 or j > 0:
+        if i == 0 and j > 0:
+            j -= 1
             continue
-
-        group = [words[i]]
-        j = i + 1
-
-        while j < n and len(group) < size:
-            # A linebreak marker forces the chunk to close
-            if words[j].get("_linebreak"):
-                break
-            # Check for silence gap between end of last word and start of next
-            gap = words[j]["start"] - words[j - 1]["end"]
-            if gap >= gap_threshold:
-                break                       # silence detected — close chunk
-            group.append(words[j])
-            j += 1
-
-        text  = " ".join(w["word"] for w in group)
-        raw_start = group[0]["start"]
-        # Apply pre-display offset, but don't go earlier than 0
-        # and don't apply it if the word already starts very early
-        # (avoids subtitle appearing before any speech at video start)
-        if raw_start < 0.3:
-            start = raw_start               # trust Whisper for very early words
+        if j == 0 and i > 0:
+            alignment.append((i - 1, None, None))
+            i -= 1
+            continue
+        cell = dp[i][j]
+        if cell is None:
+            i -= 1
+            j -= 1
+            continue
+        _, bp = cell
+        if bp == (1, 1):
+            alignment.append((i - 1, j - 1, j - 1))
+            i -= 1
+            j -= 1
+        elif bp == (1, 0):
+            alignment.append((i - 1, None, None))
+            i -= 1
+        elif bp == (0, 1):
+            j -= 1
+        elif bp == (2, 1):
+            alignment.append((i - 1, j - 1, j - 1))
+            alignment.append((i - 2, j - 1, j - 1))
+            i -= 2
+            j -= 1
+        elif bp == (1, 2):
+            alignment.append((i - 1, j - 2, j - 1))
+            i -= 1
+            j -= 2
         else:
-            start = max(0, raw_start - pre_display)
-        end   = group[-1]["end"]
+            i -= 1
+            j -= 1
+    alignment.reverse()
 
-        # enforce a minimum display time
-        if end - start < 0.15:
-            end = start + 0.15
+    # Build result
+    result = []
+    for (li, wj_start, wj_end) in alignment:
+        entry = flat[li]
+        if wj_start is not None:
+            start = whisper_words[wj_start]["start"]
+            end = whisper_words[wj_end]["end"]
+        else:
+            start = None
+            end = None
+        result.append({
+            "word": entry["word"],
+            "start": start,
+            "end": end,
+            "line_idx": entry["line_idx"],
+            "is_line_end": entry["is_line_end"],
+        })
 
-        chunks.append({"text": text, "start": start, "end": end})
+    _interpolate_missing(result)
+    _spread_shared_timestamps(result)
+    _fix_cross_line_timestamps(result)
+    return result
+
+
+def _interpolate_missing(aligned):
+    """Fill in None timestamps by interpolating from neighbors."""
+    n = len(aligned)
+    for i in range(n):
+        if aligned[i]["start"] is None:
+            prev_end = 0.0
+            for k in range(i - 1, -1, -1):
+                if aligned[k]["end"] is not None:
+                    prev_end = aligned[k]["end"]
+                    break
+            next_start = prev_end + 1.0
+            for k in range(i + 1, n):
+                if aligned[k]["start"] is not None:
+                    next_start = aligned[k]["start"]
+                    break
+            count = 0
+            for k in range(i, n):
+                if aligned[k]["start"] is None:
+                    count += 1
+                else:
+                    break
+            step = (next_start - prev_end) / max(count, 1)
+            for k in range(count):
+                aligned[i + k]["start"] = prev_end + k * step
+                aligned[i + k]["end"] = prev_end + (k + 1) * step
+
+
+def _spread_shared_timestamps(aligned):
+    """Split shared timestamps evenly among consecutive words."""
+    n = len(aligned)
+    i = 0
+    while i < n:
+        j = i + 1
+        while j < n and abs(aligned[j]["start"] - aligned[i]["start"]) < 0.01:
+            j += 1
+        run_len = j - i
+        if run_len > 1:
+            start = aligned[i]["start"]
+            end = aligned[j - 1]["end"]
+            step = (end - start) / run_len
+            for k in range(run_len):
+                aligned[i + k]["start"] = start + k * step
+                aligned[i + k]["end"] = start + (k + 1) * step
         i = j
 
-    # remove overlaps (keep each chunk's end <= next chunk's start)
+
+def _fix_cross_line_timestamps(aligned):
+    """Fix words at line starts that inherit the previous line's timestamp."""
+    n = len(aligned)
+    for i in range(1, n):
+        if aligned[i]["line_idx"] != aligned[i - 1]["line_idx"]:
+            if aligned[i]["start"] <= aligned[i - 1]["end"] + 0.05:
+                new_start = aligned[i - 1]["end"] + 0.05
+                if new_start < aligned[i]["end"]:
+                    aligned[i]["start"] = new_start
+
+
+# ──────────────────────────────────────────────────────────────
+# Chunking (2-3 words per subtitle, line-aware)
+# ──────────────────────────────────────────────────────────────
+
+def _balanced_chunk_sizes(n, max_size=3):
+    """
+    Divide n words into chunks of up to max_size, avoiding 1-word orphans.
+    E.g. 7 → [3,2,2], 4 → [2,2], 8 → [3,3,2].
+    """
+    if n <= max_size:
+        return [n]
+    full, rem = divmod(n, max_size)
+    if rem == 0:
+        return [max_size] * full
+    if rem >= 2:
+        return [max_size] * full + [rem]
+    return [max_size] * (full - 1) + [max_size - 1, 2]
+
+
+def chunk_words(words, size=3, gap_threshold=SILENCE_GAP_THRESHOLD,
+                pre_display=PRE_DISPLAY_OFFSET):
+    """
+    Group timestamped words into chunks of up to *size* words.
+    Line-aware: distributes words within each line to avoid orphans.
+    Silence-aware: gaps >= *gap_threshold* force chunk breaks.
+    """
+    # Group words by line
+    lines = []
+    current_line = []
+    current_line_idx = words[0].get("line_idx", 0) if words else -1
+
+    for w in words:
+        # Skip old-style linebreak markers
+        if w.get("_linebreak"):
+            continue
+        li = w.get("line_idx", 0)
+        if li != current_line_idx:
+            if current_line:
+                lines.append(current_line)
+            current_line = [w]
+            current_line_idx = li
+        else:
+            current_line.append(w)
+    if current_line:
+        lines.append(current_line)
+
+    chunks = []
+    for line_words in lines:
+        # Split by silence gaps within the line (but tolerate more for
+        # the first word to avoid single-word orphans at line start)
+        segments = []
+        seg = [line_words[0]]
+        for k in range(1, len(line_words)):
+            gap = line_words[k]["start"] - line_words[k - 1]["end"]
+            effective_gap = gap_threshold if len(seg) > 1 else gap_threshold * 3
+            if gap >= effective_gap:
+                segments.append(seg)
+                seg = [line_words[k]]
+            else:
+                seg.append(line_words[k])
+        segments.append(seg)
+
+        for seg_words in segments:
+            chunk_sizes = _balanced_chunk_sizes(len(seg_words), size)
+            idx = 0
+            for cs in chunk_sizes:
+                group = seg_words[idx : idx + cs]
+                text = " ".join(w["word"] for w in group)
+                raw_start = group[0]["start"]
+                if raw_start < 0.3:
+                    start = raw_start
+                else:
+                    start = max(0, raw_start - pre_display)
+                end = group[-1]["end"]
+                if end - start < 0.2:
+                    end = start + 0.3
+                chunks.append({"text": text, "start": start, "end": end})
+                idx += cs
+
+    # Remove overlaps
     for k in range(1, len(chunks)):
         if chunks[k]["start"] < chunks[k - 1]["end"]:
             chunks[k - 1]["end"] = chunks[k]["start"]
